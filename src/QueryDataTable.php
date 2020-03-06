@@ -51,6 +51,13 @@ class QueryDataTable extends DataTableAbstract
      * @var bool
      */
     protected $skipTotalRecords = false;
+    
+    /**
+     * Flag to use SQL_CALC_FOUND_ROWS in complex Query.
+     *
+     * @var bool
+     */
+    protected $useSqlCalcFoundRows = false;
 
     /**
      * Flag to keep the select bindings.
@@ -137,6 +144,19 @@ class QueryDataTable extends DataTableAbstract
 
         return $this;
     }
+    
+    /**
+     * Set the use of SQL_CALC_FOUND_FOWS in count method
+     * This is useful when complex queries take to much time for the COUNT(*) method
+     *
+     * @return $this
+     */
+    public function useSqlCalcFoundRows()
+    {
+        $this->useSqlCalcFoundRows = true;
+        
+        return $this;
+    }
 
     /**
      * Keep the select bindings.
@@ -189,11 +209,17 @@ class QueryDataTable extends DataTableAbstract
     public function count()
     {
         $builder = $this->prepareCountQuery();
+        if(!$this->useSqlCalcFoundRows) {
         $table   = $this->connection->raw('(' . $builder->toSql() . ') count_row_table');
 
         return $this->connection->table($table)
                                 ->setBindings($builder->getBindings())
                                 ->count();
+        } else {
+            $table = $builder->get();
+            $total_rows_found = DB::select(DB::raw('SELECT FOUND_ROWS() AS num'))[0]->num;
+            return $total_rows_found;
+        }
     }
 
     /**
@@ -211,7 +237,20 @@ class QueryDataTable extends DataTableAbstract
             if (! $this->keepSelectBindings) {
                 $builder->setBindings([], 'select');
             }
+        } else if( $this->useSqlCalcFoundRows === true) {
+            
+            if (is_null($builder->columns)) {
+                $builder->columns = is_array ($columns) ? $columns : array();
+            }
+            if ($builder->columns && $builder->columns[0] == '*') {
+                $builder->columns[0] = new Expression("SQL_CALC_FOUND_ROWS *");
+            } else {
+                $ex = new Expression ("SQL_CALC_FOUND_ROWS '0' AS sql_calc_dummy_column");
+                array_unshift ($builder->columns, $ex);
+            }
+            
         }
+        
 
         return $builder;
     }
