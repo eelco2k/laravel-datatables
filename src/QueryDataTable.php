@@ -3,6 +3,7 @@
 namespace Yajra\DataTables;
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Query\Builder;
 use Yajra\DataTables\Utilities\Helper;
 use Illuminate\Database\Query\Expression;
