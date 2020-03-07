@@ -229,29 +229,33 @@ class QueryDataTable extends DataTableAbstract
      */
     protected function prepareCountQuery()
     {
-        $builder = clone $this->query;
-
-        if (! $this->isComplexQuery($builder)) {
+        if (! $this->isComplexQuery($builder) && !$this->useSqlCalcFoundRows()) {
+            $builder = clone $this->query;
             $row_count = $this->wrap('row_count');
             $builder->select($this->connection->raw("'1' as {$row_count}"));
             if (! $this->keepSelectBindings) {
                 $builder->setBindings([], 'select');
             }
-        } else if( $this->useSqlCalcFoundRows === true) {
-            
-            if (is_null($builder->columns)) {
-                $builder->columns = is_array ($columns) ? $columns : array();
+        } else if($this->useSqlCalcFoundRows) {
+            $builder = $this->query;
+            switch(get_class($builder)) {
+                case 'Illuminate\Database\Query\Builder':
+                    $query_builder = $builder;
+                    break;
+                case 'Illuminate\Database\Eloquent\Builder':
+                    $query_builder = $builder->getQuery();
+                    break;
             }
-            if ($builder->columns && $builder->columns[0] == '*') {
-                $builder->columns[0] = new Expression("SQL_CALC_FOUND_ROWS *");
+            if (is_null($query_builder->columns)) {
+                $query_builder->columns = is_array ($columns) ? $columns : array();
+            }
+            if ($query_builder->columns && $query_builder->columns[0] == '*') {
+                $query_builder->columns[0] = new Expression("SQL_CALC_FOUND_ROWS *");
             } else {
                 $ex = new Expression ("SQL_CALC_FOUND_ROWS '0' AS sql_calc_dummy_column");
-                array_unshift ($builder->columns, $ex);
+                array_unshift ($query_builder->columns, $ex);
             }
-            
         }
-        
-
         return $builder;
     }
 
